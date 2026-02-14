@@ -32,9 +32,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   activeCount,
   userRole
 }) => {
+  // Estado apenas para debug local ou futuro uso, removido da UI principal para simplificar
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Calcula itens pendentes de sincronização
   useEffect(() => {
     const calculatePending = () => {
       const keys = [
@@ -55,24 +55,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
 
     calculatePending();
-    const interval = setInterval(calculatePending, 30000);
+    // Verifica a cada minuto apenas para estado interno, sem impacto visual forte
+    const interval = setInterval(calculatePending, 60000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="p-6 flex flex-col gap-6 animate-fade-in">
-      {pendingCount > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-3 rounded-2xl flex items-center justify-between animate-in slide-in-from-top">
-           <div className="flex items-center gap-2">
-              <span className="animate-bounce">☁️</span>
-              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                {pendingCount} registros aguardando nuvem
-              </span>
-           </div>
-           <p className="text-[8px] text-slate-400 font-bold uppercase">Sincronização Automática Ativa</p>
-        </div>
-      )}
-
       <div className="text-center mt-2">
         <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Menu Principal</h2>
         <p className="text-slate-500 dark:text-slate-400 text-xs">Gestão Operacional de Portaria</p>

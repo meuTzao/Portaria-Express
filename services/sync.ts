@@ -22,12 +22,19 @@ export const syncService = {
 
   async syncAllModules(onStatusChange?: (status: SyncStatus) => void): Promise<{ success: boolean; message: string }> {
     if (!navigator.onLine) return { success: false, message: 'Sem conexão com a internet.' };
+    
+    // 1. Verificação de sessão antes de iniciar
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      console.warn("🚫 Sessão inválida. Cancelando sincronização.");
+      if (onStatusChange) onStatusChange('error');
+      return { success: false, message: 'Sessão inválida ou expirada.' };
+    }
+
     if (onStatusChange) onStatusChange('syncing');
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sessão expirada.");
-      const userId = session.user.id;
+      const userId = data.session.user.id;
 
       const runSync = async () => {
         // 1. Processa deleções
@@ -57,6 +64,13 @@ export const syncService = {
 
     } catch (err: any) {
       console.error("❌ Erro no sync:", err);
+      
+      // 2. Trata erros de autenticação (401/403)
+      if (err.status === 401 || err.status === 403 || (err.message && (err.message.includes('JWT') || err.message.includes('session')))) {
+         console.error("🔒 Erro de Autenticação (401/403). Forçando logout...");
+         await supabase.auth.signOut();
+      }
+
       if (onStatusChange) onStatusChange('error');
       return { success: false, message: err.message || 'Falha de comunicação.' };
     }
@@ -257,7 +271,7 @@ export const syncService = {
             deviceName: cloudSets.device_name,
             theme: cloudSets.theme,
             fontSize: cloudSets.font_size,
-            sectorContacts: cloudSets.sector_contacts || [],
+            sector_contacts: cloudSets.sector_contacts || [],
             updated_at: cloudSets.updated_at,
             synced: true
           };
@@ -304,7 +318,7 @@ export const syncService = {
     return data.map(r => {
       switch (table) {
         case 'vehicle_entries': return {
-          id: r.id, accessType: r.access_type, driverName: r.driver_name, company: r.company,
+          id: r.id, accessType: r.access_type, driver_name: r.driver_name, company: r.company,
           supplier: r.supplier, operationType: r.operation_type, orderNumber: r.order_number,
           vehiclePlate: r.vehicle_plate, trailerPlate: r.trailer_plate, isTruck: r.is_truck,
           documentNumber: r.document_number, visitReason: r.visit_reason, visitedPerson: r.visited_person,

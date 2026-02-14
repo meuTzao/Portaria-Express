@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewState, VehicleEntry, AppSettings, UserSession, SyncStatus } from './types';
 import { db } from './services/db';
 import { syncService } from './services/sync';
 import { useAuth } from './context/AuthContext';
 import { useInternalAuth } from './context/InternalAuthContext';
 import { Icons } from './constants';
+import { supabase } from './lib/supabaseClient';
 import Dashboard from './components/Dashboard';
 import NewEntryFlow from './components/NewEntryFlow';
 import ActiveVehicles from './components/ActiveVehicles';
@@ -32,48 +33,43 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [entries, setEntries] = useState<VehicleEntry[]>([]);
   const [settings, setSettings] = useState<AppSettings>(db.getSettings());
-  const [session, setSession] = useState<UserSession | null>(db.getSession());
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   
-  // Ref para evitar múltiplas execuções simultâneas do sync
-  const isSyncingRef = useRef(false);
-
-  // --- SYNC AUTOMÁTICO (30 MIN) ---
+  // --- SINCRONIZAÇÃO INICIAL (AO ABRIR O APP) ---
   useEffect(() => {
-    const runAutoSync = async () => {
-      // 1. Trava de segurança para evitar concorrência
-      if (isSyncingRef.current) return;
+    const runInitialSync = async () => {
+      // Só executa se estiver autenticado e online
       if (!isAuthenticated || !navigator.onLine) return;
 
-      isSyncingRef.current = true;
+      // Verifica sessão Supabase
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+
+      setSyncStatus('syncing');
 
       try {
-        await syncService.syncAllModules(setSyncStatus);
+        // Executa sync completo uma única vez
+        await syncService.syncAllModules();
         
-        // Atualiza o estado local das configurações caso o sync tenha trazido novos dados
+        // Atualiza UI com novos dados
         setSettings(db.getSettings());
+        setEntries(db.getEntries());
         
-        setTimeout(() => setSyncStatus('idle'), 5000);
+        setSyncStatus('success');
+        setTimeout(() => setSyncStatus('idle'), 3000);
       } catch (error) {
-        console.error("Erro no auto sync:", error);
-      } finally {
-        // Libera a trava sempre
-        isSyncingRef.current = false;
+        console.error("Erro no sync inicial:", error);
+        setSyncStatus('error');
       }
     };
     
-    // Executa imediatamente ao autenticar
+    // Dispara apenas quando o usuário realiza o login interno
     if (isAuthenticated) {
-      runAutoSync();
+      runInitialSync();
     }
-    
-    // Configura intervalo de 30 minutos
-    const interval = setInterval(runAutoSync, 30 * 60 * 1000); 
-    
-    return () => clearInterval(interval);
-  }, [isAuthenticated]); // Dependência única para evitar loops
+    // Removido qualquer setInterval ou loop. O Sync acontece apenas aqui ou via botão manual.
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -97,10 +93,10 @@ const App: React.FC = () => {
   }, [settings.theme]);
 
   const getSyncStatusIcon = () => {
-    if (!isOnline) return <span className="text-red-500 font-bold">📵 SEM REDE</span>;
+    if (!isOnline) return <span className="text-red-500 font-bold">📵 OFFLINE</span>;
     switch(syncStatus) {
       case 'syncing': return <span className="text-blue-400 animate-pulse font-bold">🔄 SINCRONIZANDO...</span>;
-      case 'success': return <span className="text-emerald-400 font-bold">✅ NUVEM OK</span>;
+      case 'success': return <span className="text-emerald-400 font-bold">✅ DADOS ATUAIS</span>;
       case 'error': return <span className="text-red-500 font-bold">⚠️ ERRO SYNC</span>;
       default: return <span className="text-slate-500 font-bold italic">☁️ CONECTADO</span>;
     }

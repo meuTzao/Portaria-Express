@@ -42,9 +42,18 @@ const Settings: React.FC<SettingsProps> = ({
   ];
 
   const handleManualSync = async () => {
-    const result = await syncService.syncAllModules(setManualSyncStatus);
-    if (!result.success) alert(result.message);
-    setTimeout(() => setManualSyncStatus('idle'), 3000);
+    if (internalUser?.role !== 'admin') return;
+    
+    setManualSyncStatus('syncing');
+    try {
+      const result = await syncService.syncAllModules();
+      setManualSyncStatus(result.success ? 'success' : 'error');
+      if (!result.success) alert(result.message);
+    } catch (e) {
+      setManualSyncStatus('error');
+    } finally {
+      setTimeout(() => setManualSyncStatus('idle'), 3000);
+    }
   };
 
   const handleExportBackup = () => {
@@ -118,24 +127,26 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       </div>
 
-      {/* SESSÃO DE SINCRONIZAÇÃO - AGORA PARA TODOS */}
-      <div className="grid grid-cols-1 gap-4">
-         <div className="bg-emerald-600 text-white p-6 rounded-3xl shadow-lg flex items-center justify-between animate-in zoom-in">
-             <div className="flex-1">
-                <h3 className="font-bold text-lg">Sincronizar Nuvem</h3>
-                <p className="text-xs opacity-80">
-                  {manualSyncStatus === 'syncing' ? 'Enviando e recebendo dados...' : 'Atualize os contatos e registros com o servidor.'}
-                </p>
-             </div>
-             <button 
-               onClick={handleManualSync} 
-               disabled={manualSyncStatus === 'syncing'}
-               className="bg-white text-emerald-600 h-16 w-16 rounded-2xl font-black shadow-md active:scale-95 transition-transform flex items-center justify-center shrink-0 ml-4"
-             >
-               {manualSyncStatus === 'syncing' ? <div className="animate-spin w-6 h-6 border-4 border-emerald-600 border-t-transparent rounded-full"/> : <Icons.Sync />}
-             </button>
-         </div>
-      </div>
+      {/* SESSÃO DE SINCRONIZAÇÃO - APENAS ADMIN */}
+      {internalUser?.role === 'admin' && (
+        <div className="grid grid-cols-1 gap-4">
+           <div className="bg-emerald-600 text-white p-6 rounded-3xl shadow-lg flex items-center justify-between animate-in zoom-in">
+               <div className="flex-1">
+                  <h3 className="font-bold text-lg">Sincronizar Nuvem</h3>
+                  <p className="text-xs opacity-80">
+                    {manualSyncStatus === 'syncing' ? 'Enviando e recebendo dados...' : 'Atualize os contatos e registros com o servidor.'}
+                  </p>
+               </div>
+               <button 
+                 onClick={handleManualSync} 
+                 disabled={manualSyncStatus === 'syncing'}
+                 className="bg-white text-emerald-600 h-16 w-16 rounded-2xl font-black shadow-md active:scale-95 transition-transform flex items-center justify-center shrink-0 ml-4"
+               >
+                 {manualSyncStatus === 'syncing' ? <div className="animate-spin w-6 h-6 border-4 border-emerald-600 border-t-transparent rounded-full"/> : <Icons.Sync />}
+               </button>
+           </div>
+        </div>
+      )}
 
       {internalUser?.role === 'admin' && (
         <div className="space-y-4">
