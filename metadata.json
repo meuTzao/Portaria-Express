@@ -1,0 +1,8 @@
+{
+  "name": "Portaria Express - Controle de Acesso",
+  "description": "Aplicativo offline para portarias com sincronização manual via QR Code e Arquivos.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
